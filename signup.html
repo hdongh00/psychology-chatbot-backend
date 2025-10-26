@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>실시간 챗봇 테스트</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f0f2f5; }
+        #chat-container { width: 400px; height: 600px; border: 1px solid #ddd; background: #fff; display: flex; flex-direction: column; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        #connection-area { padding: 10px; display: flex; gap: 10px; border-bottom: 1px solid #eee; align-items: center; }
+        #connection-area input { flex-grow: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        #connection-area button { padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap; }
+        #connect-button { background-color: #28a745; color: white; }
+        #disconnect-button { background-color: #dc3545; color: white; }
+        #chat-window { flex-grow: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+        .message { max-width: 70%; padding: 10px 15px; border-radius: 18px; line-height: 1.4; word-wrap: break-word; }
+        .user-message { background-color: #007bff; color: white; align-self: flex-end; }
+        .bot-message { background-color: #e9e9eb; color: #333; align-self: flex-start; }
+        #input-form { display: flex; padding: 10px; border-top: 1px solid #eee; }
+        #message-input { flex-grow: 1; padding: 10px; border: 1px solid #ccc; border-radius: 20px; margin-right: 10px; }
+        #send-button { padding: 10px 15px; border: none; background-color: #007bff; color: white; border-radius: 20px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div id="chat-container">
+    <div id="connection-area">
+        <input type="text" id="chatroom-id" placeholder="채팅방 ID (예: roomA)">
+        <button id="connect-button">연결</button>
+        <button id="disconnect-button" disabled>종료</button>
+    </div>
+    <div id="chat-window"></div>
+    <form id="input-form">
+        <input type="text" id="message-input" placeholder="메시지를 입력하세요..." autocomplete="off" disabled>
+        <button type="submit" id="send-button" disabled>전송</button>
+    </form>
+</div>
+
+<script>
+    // --- DOM 요소 선택 ---
+    const connectButton = document.getElementById('connect-button');
+    const disconnectButton = document.getElementById('disconnect-button');
+    const sendButton = document.getElementById('send-button');
+    const chatRoomIdInput = document.getElementById('chatroom-id');
+    const messageInput = document.getElementById('message-input');
+    const chatWindow = document.getElementById('chat-window');
+    const inputForm = document.getElementById('input-form');
+
+    let stompClient = null;
+
+    // --- 이벤트 리스너 ---
+    connectButton.addEventListener('click', () => connect());
+    disconnectButton.addEventListener('click', () => disconnect());
+    inputForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        sendMessage();
+    });
+
+    // --- 함수 정의 ---
+    function connect() {
+        const chatRoomId = chatRoomIdInput.value.trim();
+        if (!chatRoomId) {
+            alert("채팅방 ID를 입력하세요.");
+            return;
+        }
+       
+        /* jwt토큰 활용 시에만 주석 해제
+        if (!jwtToken) {
+            alert("JWT 토큰을 입력하세요. (로그인 API로 먼저 발급받으세요)");
+            return;
+        }
+        */
+
+        const socket = new SockJS('http://localhost:8083/ws');
+        stompClient = Stomp.over(socket);
+
+        // connect 호출 시 헤더 추가
+        const headers = {
+            // JWT 토큰 없이 테스트하는 경우 아래 줄 주석 처리
+            // 'Authorization': 'Bearer ' + jwtToken,
+            'chatRoomId': chatRoomId // 연결 시 헤더에 chatRoomId 추가
+        };
+        
+        console.log("Connecting with headers:", headers);
+        stompClient.connect(headers, (frame) => {
+            console.log('WebSocket Connected: ' + frame);
+            setConnected(true);
+
+           stompClient.subscribe('/topic/' + chatRoomId, (message) => {
+                showMessage(JSON.parse(message.body));
+            });
+
+            // 2. 구독 성공 후, 서버에 '입장' 메시지를 보냅니다.
+            stompClient.send("/app/chat.join", // WebSocketController에 새로 만든 주소
+                {}, // 헤더는 비워둡니다.
+                JSON.stringify({ chatRoomId: chatRoomId, senderName: 'UserJoin' }) // Body에 chatRoomId 포함
+            );
+            console.log("Sent join message for room:", chatRoomId);
+            // ------------------
+
+        }, (error) => {
+            console.error('WebSocket Connection error: ' + error);
+            alert('연결에 실패했습니다. 백엔드 서버가 켜져 있는지, 콘솔에 에러가 없는지 확인하세요.');
+        });
+    }
+
+    function sendMessage() {
+        const messageContent = messageInput.value.trim();
+        const chatRoomId = chatRoomIdInput.value.trim();
+
+        if (messageContent && stompClient) {
+            const chatMessage = {
+                chatRoomId: chatRoomId,
+                message: messageContent
+                // senderName은 백엔드가 채워주므로 보낼 필요가 없습니다.
+            };
+            // 백엔드의 @MessageMapping 주소로 메시지를 보냅니다.
+            stompClient.send("/app/chat.sendMessage", {}, JSON.stringify(chatMessage));
+            messageInput.value = '';
+        }
+    }
+
+    function showMessage(message) {
+        console.log("Received message:", message); // 받은 메시지를 콘솔에 출력
+        const messageElement = document.createElement('div');
+        messageElement.classList.add('message');
+
+        // senderName에 따라 말풍선 스타일을 결정합니다.
+        if (message.senderName === '챗봇') {
+            messageElement.classList.add('bot-message');
+        } else {
+            // '나' 또는 JWT 토큰에서 온 실제 이름 모두 user-message로 처리
+            messageElement.classList.add('user-message');
+        }
+
+        //messageElement.textContent = message.message;
+        messageElement.innerHTML = message.message.replace(/\n/g, '<br>');
+        chatWindow.appendChild(messageElement);
+        // 항상 최신 메시지가 보이도록 자동으로 스크롤을 내립니다.
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+
+    function disconnect() {
+        if (stompClient !== null) {
+            stompClient.disconnect();
+        }
+        setConnected(false);
+        console.log("WebSocket Disconnected");
+    }
+
+    function setConnected(connected) {
+        connectButton.disabled = connected;
+        disconnectButton.disabled = !connected;
+        messageInput.disabled = !connected;
+        sendButton.disabled = !connected;
+        chatRoomIdInput.disabled = connected;
+        if (connected) {
+            chatWindow.innerHTML = '';
+        }
+    }
+</script>
+
+</body>
+</html>

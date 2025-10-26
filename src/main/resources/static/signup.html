@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>회원가입 테스트</title>
+</head>
+<body>
+<h1>회원가입 기능 테스트</h1>
+<form id="signup-form">
+    <label for="name">이름:</label>
+    <input type="text" id="name" required>
+    <button type="submit">가입하기</button>
+</form>
+<div id="result"></div>
+
+<script>
+    document.getElementById('signup-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+
+        const name = document.getElementById('name').value;
+        const resultDiv = document.getElementById('result');
+
+        try {
+            const response = await fetch('/api/members', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: name })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                resultDiv.textContent = `성공! ID: ${data.id}, 이름: ${data.name}`;
+            } else {
+                resultDiv.textContent = `실패: 이미 존재하는 회원이거나 서버 오류입니다.`;
+            }
+        } catch (error) {
+            resultDiv.textContent = `네트워크 요청 실패: ${error}`;
+        }
+    });
+</script>
+</body>
+</html>

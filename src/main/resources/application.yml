@@ -1,0 +1,46 @@
+server:
+  port: 8083
+
+spring:
+  # --- MariaDB (JPA) 설정 ---
+  # 이 부분은 나중에 팀원의 실제 정보로 채울 placeholder입니다.
+  datasource:
+    driver-class-name: org.mariadb.jdbc.Driver
+    url: jdbc:mariadb://localhost:3306/<TEAM_DB_NAME>
+    username: <TEAM_USERNAME>
+    password: <TEAM_PASSWORD>
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: true
+    open-in-view: false # OSIV 경고를 비활성화합니다.
+
+  # --- MongoDB 설정 ---
+  data:
+    mongodb:
+      uri: mongodb+srv://hdongh14_db_user:fBldFQQjRsbwwJOG@cluster0.uocbfip.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
+      database: my-chatbot
+
+  # --- 로그 컬러 표시 설정 ---
+  output:
+    ansi:
+      enabled: always
+
+  # --- 활성화할 프로필 지정 ---
+  # 이 설정을 통해 Spring은 application-local.yml 파일을 추가로 읽어들입니다.
+  profiles:
+    active: local
+
+  application:
+    name: psychology-chatbot
+
+gemini:
+  api:
+    key: AIzaSyCp6OFBFy_UBfqlHb7owawJWiEmuM3Eyvk
+    # 우리 프로젝트에 가장 적합한 최신 모델 주소입니다.
+    url: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
+

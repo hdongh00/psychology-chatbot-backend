@@ -40,7 +40,7 @@ spring:
 
 gemini:
   api:
-    key: AIzaSyCp6OFBFy_UBfqlHb7owawJWiEmuM3Eyvk
+    key: 
     # 우리 프로젝트에 가장 적합한 최신 모델 주소입니다.
     url: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
 
